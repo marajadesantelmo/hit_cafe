@@ -129,3 +129,24 @@ timestamp,level,source,message,error
 2025-11-06T19:16:29,INFO,process_data,Guardando dataframes en excel,
 2025-11-06T19:30:51,INFO,process_data,Abriendo bases y actualizando metricas,
 2025-11-06T19:30:51,INFO,process_data,Guardando dataframes en excel,
+2025-11-07T13:38:06,INFO,main,Pipeline start,
+2025-11-07T13:38:06,INFO,update_data_api_fudo,Cargando dataframes,
+2025-11-07T13:38:06,ERROR,update_data_api_fudo,Update failed,[Errno 2] No such file or directory: '//dc01/Usuarios/PowerBI/flastra/Documents/hit_cafe\\data\\ventas.csv'
+2025-11-07T13:40:22,INFO,main,Pipeline start,
+2025-11-07T13:40:22,INFO,update_data_api_fudo,Cargando dataframes,
+2025-11-07T13:40:22,ERROR,update_data_api_fudo,Update failed,[Errno 2] No such file or directory: '//dc01/Usuarios/PowerBI/flastra/Documents/hit_cafe\\data\\ventas.csv'
+2025-11-07T13:41:54,INFO,update_data_api_fudo,Cargando dataframes,
+2025-11-07T13:41:54,ERROR,update_data_api_fudo,Unhandled error in standalone run,[Errno 2] No such file or directory: '//dc01/Usuarios/PowerBI/flastra/Documents/hit_cafe\\data\\ventas.csv'
+2025-11-07T13:42:57,INFO,update_data_api_fudo,Cargando dataframes,
+2025-11-07T13:42:57,ERROR,update_data_api_fudo,Unhandled error in standalone run,[Errno 2] No such file or directory: '\\\\dc01\\Usuarios\\PowerBI\\flastra\\Documents\\hit_cafe\\data\\ventas.csv'
+2025-11-07T15:36:42,INFO,main,Pipeline start,
+2025-11-07T15:36:42,INFO,update_data_api_fudo,Cargando dataframes,
+2025-11-07T15:36:42,INFO,update_data_api_fudo,[Arguibel] Descargando desde sale_id 863,
+2025-11-07T15:36:44,INFO,update_data_api_fudo,[Polo] Descargando desde sale_id 1612,
+2025-11-07T15:36:55,INFO,update_data_api_fudo,Actualizando items.csv (todas las sucursales),
+2025-11-07T15:36:56,INFO,update_data_api_fudo,Actualizando ventas.csv (todas las sucursales),
+2025-11-07T15:36:57,INFO,update_data_api_fudo,"Update completed: {'ventas_added': 55, 'items_added': 85}",
+2025-11-07T15:36:57,INFO,process_data,Abriendo bases y actualizando metricas,
+2025-11-07T15:36:57,ERROR,process_data,Processing failed,[Errno 2] No such file or directory: '//dc01/Usuarios/PowerBI/flastra/Documents/hit_cafe\\data\\productos_categorias.csv'
+2025-11-07T15:38:25,INFO,process_data,Abriendo bases y actualizando metricas,
+2025-11-07T15:38:25,ERROR,process_data,Unhandled error in standalone run,[Errno 2] No such file or directory: '\\\\dc01\\Usuarios\\PowerBI\\flastra\\Documents\\hit_cafe\\data\\productos_categorias.csv'

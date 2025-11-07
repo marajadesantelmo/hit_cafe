@@ -15,9 +15,11 @@ def insert_table_data(table_name, data):
             print(f"Error inserting record into {table_name}: {e}")
 
 def _get_base_dir() -> str:
-    network = "//dc01/Usuarios/PowerBI/flastra/Documents/hit_cafe"
-    local = 'C:\\Users\\facun\\OneDrive\\Documentos\\GitHub\\hit_cafe'
-    return network if os.path.exists(network) else local
+    """Return the preferred base directory for data files."""
+    network = r"\\dc01\Usuarios\PowerBI\flastra\Documents\hit_cafe"
+    local = r'C:\Users\facun\OneDrive\Documentos\GitHub\hit_cafe'
+    server = r'\\dc01\Usuarios\PowerBI\flastra\Documents\hit_cafe'
+    return network if os.path.exists(network) else local if os.path.exists(local) else server
 
 
 def run_processing() -> dict:
