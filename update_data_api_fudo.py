@@ -77,6 +77,84 @@ def get_ventas_dataframes(headers, start_sale_id: int, sucursal: str):
 # Note: Payment-related functions have been removed as they were unused in the
 # update flow. They can be restored from version control if needed.
 
+def update_productos_categorias():
+    """Update productos_categorias.csv with any new products from all branches."""
+    base_dir = _get_base_dir()
+    productos_path = os.path.join(base_dir, 'data', 'productos_categorias.csv')
+    
+    # Load existing products
+    try:
+        existing_products = pd.read_csv(productos_path)
+        if 'Sucursal' not in existing_products.columns:
+            existing_products['Sucursal'] = None
+    except FileNotFoundError:
+        existing_products = pd.DataFrame(columns=['product_id', 'product_name', 'product_category', 'Sucursal'])
+    
+    all_new_products = []
+    
+    for cfg in get_branch_configs():
+        suc = cfg['name']
+        headers = autenticar(cfg['apiKey'], cfg['apiSecret'])
+        
+        log_event("INFO", "update_data_api_fudo", f"[{suc}] Actualizando catálogo de productos")
+        
+        # Get product categories
+        try:
+            url = 'https://api.fu.do/v1alpha1/product-categories?sort=id&include=products'
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                json_data = response.json().get('data', [])
+                
+                processed_data = []
+                for item in json_data:
+                    category_name = item['attributes']['name']
+                    for product in item['relationships']['products']['data']:
+                        product_id = product['id']
+                        processed_data.append([category_name, product_id])
+                
+                categorias = pd.DataFrame(processed_data, columns=['product_category', 'product_id'])
+                
+                # Get product names
+                url_products = 'https://api.fu.do/v1alpha1/products?page[size]=500&page[number]=0'
+                response = requests.get(url_products, headers=headers)
+                if response.status_code == 200:
+                    product_data = []
+                    json_data = response.json()
+                    for item in json_data.get('data', []):
+                        product_id = item['id']
+                        product_name = item['attributes']['name']
+                        product_data.append([product_id, product_name])
+                    
+                    productos = pd.DataFrame(product_data, columns=['product_id', 'product_name'])
+                    
+                    # Merge and add Sucursal
+                    productos['product_id'] = productos['product_id'].astype(str)
+                    categorias['product_id'] = categorias['product_id'].astype(str)
+                    productos_final = productos.merge(categorias, on='product_id', how='left')
+                    productos_final = productos_final[['product_id', 'product_name', 'product_category']]
+                    productos_final['Sucursal'] = suc
+                    
+                    all_new_products.append(productos_final)
+                    
+        except Exception as e:
+            log_event("ERROR", "update_data_api_fudo", f"[{suc}] Error updating product catalog", error=str(e))
+    
+    if all_new_products:
+        # Combine all new products
+        new_products_df = pd.concat(all_new_products, ignore_index=True)
+        
+        # Remove duplicates and merge with existing
+        all_products = pd.concat([existing_products, new_products_df], ignore_index=True)
+        all_products = all_products.drop_duplicates(subset=['product_id', 'Sucursal'], keep='last')
+        
+        # Save updated catalog
+        all_products.to_csv(productos_path, index=False)
+        log_event("INFO", "update_data_api_fudo", f"Catálogo actualizado: {len(all_products)} productos totales")
+        
+        return len(new_products_df)
+    
+    return 0
+
 def run_update():
     """Update ventas.csv and items.csv from the latest sale id onward.
 
@@ -137,6 +215,12 @@ def run_update():
         ventas_new = pd.concat([ventas] + ventas_updates_all, ignore_index=True)
         ventas_new.to_csv(ventas_path, index=False)
         time.sleep(1)
+
+    # Update product catalog if we have new items
+    if items_updates_all:
+        log_event("INFO", "update_data_api_fudo", "Actualizando catálogo de productos")
+        productos_added = update_productos_categorias()
+        updated_counts["productos_added"] = productos_added
 
     return updated_counts
 
