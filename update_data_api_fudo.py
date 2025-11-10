@@ -74,6 +74,51 @@ def get_ventas_dataframes(headers, start_sale_id: int, sucursal: str):
         last_items_df = pd.concat(items_dfs, ignore_index=True)
     return last_sales_df , last_items_df 
 
+def get_pagos_dataframes(headers, start_payment_id: int, sucursal: str):
+    """Get payments data from the API starting from start_payment_id."""
+    payments_dfs = []
+    last_payments_df = pd.DataFrame()
+    payment_id = start_payment_id
+    
+    log_event("INFO", "update_data_api_fudo", f"[{sucursal}] Descargando pagos desde payment_id {payment_id}")
+    
+    while True:
+        url = f'https://api.fu.do/v1alpha1/payments/{payment_id}'
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 429 and 'Retry-After' in response.headers:
+            retry_after = int(response.headers['Retry-After'])
+            print(f"[{sucursal}] Payment {payment_id} - Retry later, waiting {retry_after} seconds...")
+            time.sleep(retry_after)
+            continue
+            
+        if response.status_code == 404:
+            print(f"[{sucursal}] Payment {payment_id} - Pago no encontrado. Dejamos de buscar pagos.")
+            break
+            
+        try:
+            data_dict = response.json()      
+            payment_data = data_dict['data']
+        except Exception:
+            break
+            
+        payment_df = pd.DataFrame({
+            'payment_id': [payment_data['id']],
+            'amount': [payment_data['attributes']['amount']],
+            'createdAt': [payment_data['attributes']['createdAt']],
+            'paymentMethod': [payment_data['relationships']['paymentMethod']['data']['id']],
+            'canceled': [payment_data['attributes']['canceled']],
+            'Sucursal': [sucursal],
+        })
+        payments_dfs.append(payment_df)
+        print(f"[{sucursal}] Payment {payment_id} - Descargado")
+        payment_id += 1
+        
+    if len(payments_dfs) != 0:
+        last_payments_df = pd.concat(payments_dfs, ignore_index=True)
+        
+    return last_payments_df
+
 # Note: Payment-related functions have been removed as they were unused in the
 # update flow. They can be restored from version control if needed.
 
@@ -156,31 +201,41 @@ def update_productos_categorias():
     return 0
 
 def run_update():
-    """Update ventas.csv and items.csv from the latest sale id onward.
+    """Update ventas.csv, items.csv, and pagos.csv from the latest IDs onward.
 
     Returns a small summary dict with counts.
     """
     base_dir = _get_base_dir()
     ventas_path = os.path.join(base_dir, 'data', 'ventas.csv')
     items_path = os.path.join(base_dir, 'data', 'items.csv')
+    pagos_path = os.path.join(base_dir, 'data', 'pagos.csv')
 
     log_event("INFO", "update_data_api_fudo", "Cargando dataframes")
     ventas = pd.read_csv(ventas_path)
     items = pd.read_csv(items_path)
+    
+    # Load pagos with error handling
+    try:
+        pagos = pd.read_csv(pagos_path)
+    except FileNotFoundError:
+        pagos = pd.DataFrame(columns=['payment_id', 'amount', 'createdAt', 'paymentMethod', 'canceled', 'Sucursal'])
 
     if 'Sucursal' not in ventas.columns:
         ventas['Sucursal'] = None
     if 'Sucursal' not in items.columns:
         items['Sucursal'] = None
+    if 'Sucursal' not in pagos.columns:
+        pagos['Sucursal'] = None
 
     # Limpio la base de posibles ventas no cerradas y saco ultimas 20 ventas por las dudas
     ventas = ventas.dropna(subset=['closedAt'])
     if len(ventas) > 20:
         ventas = ventas.iloc[:-20]
-    updated_counts = {"ventas_added": 0, "items_added": 0}
+    updated_counts = {"ventas_added": 0, "items_added": 0, "pagos_added": 0}
 
     ventas_updates_all = []
     items_updates_all = []
+    pagos_updates_all = []
 
     for cfg in get_branch_configs():
         suc = cfg['name']
@@ -194,6 +249,16 @@ def run_update():
         else:
             last_sale_id = 0
 
+        # Compute last payment id per sucursal
+        p_suc = pagos[pagos['Sucursal'] == suc]
+        if not p_suc.empty:
+            try:
+                last_payment_id = pd.to_numeric(p_suc['payment_id'], errors='coerce').dropna().astype(int).max()
+            except Exception:
+                last_payment_id = 0
+        else:
+            last_payment_id = 0
+
         log_event("INFO", "update_data_api_fudo", f"[{suc}] Descargando desde sale_id {last_sale_id + 1}")
         headers = autenticar(cfg['apiKey'], cfg['apiSecret'])
         v_u, i_u = get_ventas_dataframes(headers, last_sale_id + 1, suc)
@@ -203,6 +268,12 @@ def run_update():
         if isinstance(i_u, pd.DataFrame) and not i_u.empty:
             items_updates_all.append(i_u)
             updated_counts["items_added"] += int(i_u.shape[0])
+
+        # Get payments updates
+        p_u = get_pagos_dataframes(headers, last_payment_id + 1, suc)
+        if isinstance(p_u, pd.DataFrame) and not p_u.empty:
+            pagos_updates_all.append(p_u)
+            updated_counts["pagos_added"] += int(p_u.shape[0])
 
     if items_updates_all:
         log_event("INFO", "update_data_api_fudo", "Actualizando items.csv (todas las sucursales)")
@@ -214,6 +285,12 @@ def run_update():
         log_event("INFO", "update_data_api_fudo", "Actualizando ventas.csv (todas las sucursales)")
         ventas_new = pd.concat([ventas] + ventas_updates_all, ignore_index=True)
         ventas_new.to_csv(ventas_path, index=False)
+        time.sleep(1)
+
+    if pagos_updates_all:
+        log_event("INFO", "update_data_api_fudo", "Actualizando pagos.csv (todas las sucursales)")
+        pagos_new = pd.concat([pagos] + pagos_updates_all, ignore_index=True)
+        pagos_new.to_csv(pagos_path, index=False)
         time.sleep(1)
 
     # Update product catalog if we have new items
