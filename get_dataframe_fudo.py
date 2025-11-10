@@ -100,22 +100,26 @@ for cfg in get_branch_configs():
     suc = cfg['name']
     headers = autenticar(cfg['apiKey'], cfg['apiSecret'])
     page = 1
+    # First request to check if there's data
     url = f'https://api.fu.do/v1alpha1/payments?page[size]=500&page[number]={page}'
     response = requests.get(url, headers=headers)
     data_dict = response.json()
-    while 'data' in data_dict and len(data_dict['data']) == 500:
+    
+    while 'data' in data_dict and len(data_dict['data']) > 0:
         print(f'[{suc}] Descargando pagina {page} (pagos)')
-        url = f'https://api.fu.do/v1alpha1/payments?page[size]=500&page[number]={page}'
-        response = requests.get(url, headers=headers)
         if response.status_code == 429 and 'Retry-After' in response.headers:
             retry_after = int(response.headers['Retry-After'])
             print(f"[{suc}] Pagina {page} - Retry later, esperando {retry_after} seg...")
             time.sleep(retry_after)
+            # Retry the same page
+            response = requests.get(url, headers=headers)
+            data_dict = response.json()
             continue
+            
         if response.status_code == 404:
             print(f"[{suc}] Pagina {page} - Pago no encontrado. Detenemos.")
             break
-        data_dict = response.json()
+            
         if 'error' in data_dict:
             if data_dict['error'] == '404':
                 break
@@ -135,7 +139,12 @@ for cfg in get_branch_configs():
                 'Sucursal': [suc],
             })
             payments_dfs.append(payment_row)
+            
+        # Move to next page
         page += 1
+        url = f'https://api.fu.do/v1alpha1/payments?page[size]=500&page[number]={page}'
+        response = requests.get(url, headers=headers)
+        data_dict = response.json()
 
 payments_df = pd.concat(payments_dfs, ignore_index=True) if payments_dfs else pd.DataFrame()
 payments_df.to_csv(os.path.join(data_dir, 'pagos.csv'), index=False)
