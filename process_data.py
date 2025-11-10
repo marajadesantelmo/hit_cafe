@@ -178,13 +178,16 @@ def run_processing() -> dict:
     producto_categoria.dropna(inplace=True)
 
     ##Metricas generales
-
+    venta_total = pagos['amount'].sum()
     #Total ventas mes actual
     ventas_mes_actual = pagos[pagos['mes'] == current_date.strftime("%Y-%m")]
     metrica_ventas_mes_actual = ventas_mes_actual['amount'].sum()
     #Total ventas mes anterior
     ventas_mes_anterior = pagos[pagos['mes'] == last_day_of_previous_month.strftime("%Y-%m")]
     metrica_ventas_mes_anterior = ventas_mes_anterior['amount'].sum()
+    #Ventas ult 30 dias
+    ventas_ult_30_dias = pagos[pagos['createdAt'] >= (current_date - timedelta(days=30)).date()]
+    total_ventas_ult_30_dias = ventas_ult_30_dias['amount'].sum()
     #Crecimiento mensual
     if metrica_ventas_mes_anterior != 0:
         crecimiento_mensual = ((metrica_ventas_mes_actual - metrica_ventas_mes_anterior) / metrica_ventas_mes_anterior) * 100
@@ -193,8 +196,8 @@ def run_processing() -> dict:
     
     #Promedio mensual
     if metrica_ventas_mes_actual != 0:
-        dias_transcurridos = (current_date - first_day_of_current_month).days + 1
-        promedio_mensual = metrica_ventas_mes_actual / dias_transcurridos
+        meses_transcurridos = ventas_mes_actual['mes'].nunique()
+        promedio_mensual = venta_total / meses_transcurridos
     else:
         promedio_mensual = 0
     ##Metricas diarias
@@ -205,8 +208,7 @@ def run_processing() -> dict:
 
     #Promedio ventas diario
     if metrica_ventas_hoy != 0:
-        dias_transcurridos = (current_date - first_day_of_current_month).days + 1
-        promedio_diario = metrica_ventas_hoy / dias_transcurridos
+        promedio_diario = total_ventas_ult_30_dias /30
     else:
         promedio_diario = 0
 
@@ -216,6 +218,8 @@ def run_processing() -> dict:
     metrica_ventas_arguibel_mes_actual = ventas_arguibel_mes_actual['amount'].sum()
     ventas_arguibel_mes_anterior = ventas_arguibel[ventas_arguibel['mes'] == last_day_of_previous_month.strftime("%Y-%m")]
     metrica_ventas_arguibel_mes_anterior = ventas_arguibel_mes_anterior['amount'].sum()
+    ventas_ult_30_dias_arguibel = ventas_arguibel[ventas_arguibel['createdAt'] >= (current_date - timedelta(days=30)).date()]
+    total_ventas_ult_30_dias_arguibel = ventas_ult_30_dias_arguibel['amount'].sum()
     
     if metrica_ventas_arguibel_mes_anterior != 0:
         crecimiento_mensual_arguibel = ((metrica_ventas_arguibel_mes_actual - metrica_ventas_arguibel_mes_anterior) / metrica_ventas_arguibel_mes_anterior) * 100
@@ -223,7 +227,8 @@ def run_processing() -> dict:
         crecimiento_mensual_arguibel = 0
     
     if metrica_ventas_arguibel_mes_actual != 0:
-        promedio_mensual_arguibel = metrica_ventas_arguibel_mes_actual / dias_transcurridos
+        meses_transcurridos = ventas_arguibel_mes_actual['mes'].nunique()
+        promedio_mensual_arguibel =  total_ventas_ult_30_dias_arguibel / meses_transcurridos
     else:
         promedio_mensual_arguibel = 0
     
@@ -231,7 +236,7 @@ def run_processing() -> dict:
     metrica_ventas_arguibel_hoy = ventas_arguibel_hoy['amount'].sum()
     
     if metrica_ventas_arguibel_hoy != 0:
-        promedio_diario_arguibel = metrica_ventas_arguibel_hoy / dias_transcurridos
+        promedio_diario_arguibel = ventas_ult_30_dias_arguibel / 30
     else:
         promedio_diario_arguibel = 0
 
@@ -241,6 +246,8 @@ def run_processing() -> dict:
     metrica_ventas_polo_mes_actual = ventas_polo_mes_actual['amount'].sum()
     ventas_polo_mes_anterior = ventas_polo[ventas_polo['mes'] == last_day_of_previous_month.strftime("%Y-%m")]
     metrica_ventas_polo_mes_anterior = ventas_polo_mes_anterior['amount'].sum()
+    ventas_ult_30_dias_polo = ventas_polo[ventas_polo['createdAt'] >= (current_date - timedelta(days=30)).date()]
+    total_ventas_ult_30_dias_polo = ventas_ult_30_dias_polo['amount'].sum()
 
     if metrica_ventas_polo_mes_anterior != 0:
         crecimiento_mensual_polo = ((metrica_ventas_polo_mes_actual - metrica_ventas_polo_mes_anterior) / metrica_ventas_polo_mes_anterior) * 100
@@ -248,15 +255,15 @@ def run_processing() -> dict:
         crecimiento_mensual_polo = 0
     
     if metrica_ventas_polo_mes_actual != 0:
-        promedio_mensual_polo = metrica_ventas_polo_mes_actual / dias_transcurridos
+        meses_transcurridos = ventas_polo_mes_actual['mes'].nunique()
+        promedio_mensual_polo =  total_ventas_ult_30_dias_polo / meses_transcurridos
     else:
         promedio_mensual_polo = 0
-    
     ventas_polo_hoy = ventas_polo[ventas_polo['createdAt'] == current_date.date()]
     metrica_ventas_polo_hoy = ventas_polo_hoy['amount'].sum()
-    
+
     if metrica_ventas_polo_hoy != 0:
-        promedio_diario_polo = metrica_ventas_polo_hoy / dias_transcurridos
+        promedio_diario_polo = ventas_ult_30_dias_polo / 30
     else:
         promedio_diario_polo = 0
 
