@@ -43,6 +43,7 @@ def run_processing() -> dict:
     # Abro bases
     ventas = pd.read_csv(os.path.join(data_dir, 'ventas.csv'))
     items = pd.read_csv(os.path.join(data_dir, 'items.csv'))
+    pagos = pd.read_csv(os.path.join(data_dir, 'pagos.csv'))
     all_products = pd.read_csv(os.path.join(data_dir, 'productos_categorias.csv'))
     all_products['product_name'] = all_products['product_name'].apply(
         lambda x: x[:20] + '...' if len(x) > 20 else x
@@ -57,7 +58,14 @@ def run_processing() -> dict:
     ventas['permanencia'] = ventas['closedAt'] - ventas['createdAt']
     ventas['sale_id'] = ventas['sale_id'].astype(str)
 
-    # Formateo items - quito items cancelados
+    # Formateo pagos
+    pagos = pagos[pagos['canceled'] != True].copy()
+    pagos['createdAt'] = pd.to_datetime(pagos['createdAt'])
+    pagos['createdAt_naive'] = pagos['createdAt'].dt.tz_localize(None)
+    pagos['mes'] = pagos['createdAt_naive'].dt.to_period('M')
+    pagos['payment_id'] = pagos['payment_id'].astype(str)
+    
+    # Formateo items
     items = items[items['canceled'] != True].copy()
     # Join de items con su sale_id y mes
     items['sale_id'] = items['sale_id'].astype(str)
@@ -88,6 +96,8 @@ def run_processing() -> dict:
     items['closedAt'] = items['closedAt'].dt.tz_localize(None)
     ventas['createdAt'] = ventas['createdAt'].dt.tz_localize(None)
     ventas['closedAt'] = ventas['closedAt'].dt.tz_localize(None)
+    pagos['createdAt'] = pagos['createdAt'].dt.tz_localize(None)
+
 
     # Keep only info on date in YYYY-MM-DD format
     items['createdAt'] = items['createdAt'].dt.date
@@ -96,22 +106,25 @@ def run_processing() -> dict:
     ventas['closedAt'] = ventas['closedAt'].dt.date
     permanencia['createdAt'] = permanencia['createdAt'].dt.date
     permanencia['closedAt'] = permanencia['closedAt'].dt.date
+    pagos['createdAt'] = pagos['createdAt'].dt.date
+
     # Guardado
     log_event('INFO', 'process_data', 'Guardando dataframes en excel')
     items.to_excel(os.path.join(out_dir, 'items.xlsx'), index=False)
     ventas.to_excel(os.path.join(out_dir, 'ventas.xlsx'), index=False)
+    pagos.to_excel(os.path.join(out_dir, 'pagos.xlsx'), index=False)
     permanencia.to_excel(os.path.join(out_dir, 'permanencia.xlsx'), index=False)
 
     # Proceso datos y subo información a SQL en supabase
     # Ventas diarias
-    ventas_diarias_gral = ventas.groupby(ventas['createdAt']).agg({'total': 'sum'}).reset_index()
+    ventas_diarias_gral = pagos.groupby(pagos['createdAt']).agg({'amount': 'sum'}).reset_index()
     ventas_diarias_gral.columns = ['Fecha', 'Venta General']
     ventas_diarias_gral = ventas_diarias_gral[ventas_diarias_gral['Venta General'] > 0]
     ventas_diarias_gral['Fecha'] = ventas_diarias_gral['Fecha'].astype(str)
     ventas_diarias_gral['Venta General'] = ventas_diarias_gral['Venta General'].round(0).astype(int)
 
     # Ventas por sucursal
-    ventas_por_sucursal = ventas.groupby(['Sucursal', ventas['createdAt']]).agg({'total': 'sum'}).reset_index()
+    ventas_por_sucursal = pagos.groupby(['Sucursal', pagos['createdAt']]).agg({'amount': 'sum'}).reset_index()
     ventas_por_sucursal.columns = ['Sucursal', 'Fecha', 'Venta Sucursal']
     ventas_por_sucursal = ventas_por_sucursal[ventas_por_sucursal['Venta Sucursal'] > 0]
     ventas_por_sucursal['Fecha'] = ventas_por_sucursal['Fecha'].astype(str)
@@ -167,11 +180,11 @@ def run_processing() -> dict:
     ##Metricas generales
 
     #Total ventas mes actual
-    ventas_mes_actual = ventas[ventas['mes'] == current_date.strftime("%Y-%m")]
-    metrica_ventas_mes_actual = ventas_mes_actual['total'].sum()
+    ventas_mes_actual = pagos[pagos['mes'] == current_date.strftime("%Y-%m")]
+    metrica_ventas_mes_actual = ventas_mes_actual['amount'].sum()
     #Total ventas mes anterior
-    ventas_mes_anterior = ventas[ventas['mes'] == last_day_of_previous_month.strftime("%Y-%m")]
-    metrica_ventas_mes_anterior = ventas_mes_anterior['total'].sum()
+    ventas_mes_anterior = pagos[pagos['mes'] == last_day_of_previous_month.strftime("%Y-%m")]
+    metrica_ventas_mes_anterior = ventas_mes_anterior['amount'].sum()
     #Crecimiento mensual
     if metrica_ventas_mes_anterior != 0:
         crecimiento_mensual = ((metrica_ventas_mes_actual - metrica_ventas_mes_anterior) / metrica_ventas_mes_anterior) * 100
@@ -187,8 +200,8 @@ def run_processing() -> dict:
     ##Metricas diarias
     
     #Total ventas hoy
-    ventas_hoy = ventas[ventas['createdAt'] == current_date.date()]
-    metrica_ventas_hoy = ventas_hoy['total'].sum()
+    ventas_hoy = pagos[pagos['createdAt'] == current_date.date()]
+    metrica_ventas_hoy = ventas_hoy['amount'].sum()
 
     #Promedio ventas diario
     if metrica_ventas_hoy != 0:
@@ -198,11 +211,11 @@ def run_processing() -> dict:
         promedio_diario = 0
 
     # Métricas para Arguibel
-    ventas_arguibel = ventas[ventas['Sucursal'] == 'Arguibel']
+    ventas_arguibel = pagos[pagos['Sucursal'] == 'Arguibel']
     ventas_arguibel_mes_actual = ventas_arguibel[ventas_arguibel['mes'] == current_date.strftime("%Y-%m")]
-    metrica_ventas_arguibel_mes_actual = ventas_arguibel_mes_actual['total'].sum()
+    metrica_ventas_arguibel_mes_actual = ventas_arguibel_mes_actual['amount'].sum()
     ventas_arguibel_mes_anterior = ventas_arguibel[ventas_arguibel['mes'] == last_day_of_previous_month.strftime("%Y-%m")]
-    metrica_ventas_arguibel_mes_anterior = ventas_arguibel_mes_anterior['total'].sum()
+    metrica_ventas_arguibel_mes_anterior = ventas_arguibel_mes_anterior['amount'].sum()
     
     if metrica_ventas_arguibel_mes_anterior != 0:
         crecimiento_mensual_arguibel = ((metrica_ventas_arguibel_mes_actual - metrica_ventas_arguibel_mes_anterior) / metrica_ventas_arguibel_mes_anterior) * 100
@@ -215,7 +228,7 @@ def run_processing() -> dict:
         promedio_mensual_arguibel = 0
     
     ventas_arguibel_hoy = ventas_arguibel[ventas_arguibel['createdAt'] == current_date.date()]
-    metrica_ventas_arguibel_hoy = ventas_arguibel_hoy['total'].sum()
+    metrica_ventas_arguibel_hoy = ventas_arguibel_hoy['amount'].sum()
     
     if metrica_ventas_arguibel_hoy != 0:
         promedio_diario_arguibel = metrica_ventas_arguibel_hoy / dias_transcurridos
@@ -223,12 +236,12 @@ def run_processing() -> dict:
         promedio_diario_arguibel = 0
 
     # Métricas para Polo
-    ventas_polo = ventas[ventas['Sucursal'] == 'Polo']
+    ventas_polo = pagos[pagos['Sucursal'] == 'Polo']
     ventas_polo_mes_actual = ventas_polo[ventas_polo['mes'] == current_date.strftime("%Y-%m")]
-    metrica_ventas_polo_mes_actual = ventas_polo_mes_actual['total'].sum()
+    metrica_ventas_polo_mes_actual = ventas_polo_mes_actual['amount'].sum()
     ventas_polo_mes_anterior = ventas_polo[ventas_polo['mes'] == last_day_of_previous_month.strftime("%Y-%m")]
-    metrica_ventas_polo_mes_anterior = ventas_polo_mes_anterior['total'].sum()
-    
+    metrica_ventas_polo_mes_anterior = ventas_polo_mes_anterior['amount'].sum()
+
     if metrica_ventas_polo_mes_anterior != 0:
         crecimiento_mensual_polo = ((metrica_ventas_polo_mes_actual - metrica_ventas_polo_mes_anterior) / metrica_ventas_polo_mes_anterior) * 100
     else:
@@ -240,7 +253,7 @@ def run_processing() -> dict:
         promedio_mensual_polo = 0
     
     ventas_polo_hoy = ventas_polo[ventas_polo['createdAt'] == current_date.date()]
-    metrica_ventas_polo_hoy = ventas_polo_hoy['total'].sum()
+    metrica_ventas_polo_hoy = ventas_polo_hoy['amount'].sum()
     
     if metrica_ventas_polo_hoy != 0:
         promedio_diario_polo = metrica_ventas_polo_hoy / dias_transcurridos
@@ -295,10 +308,19 @@ def run_processing() -> dict:
 
 
     try: 
-        print("Eliminando datos antiguos de hc_producto_categoria...")
-        #supabase_client.table('hc_producto_categoria').delete().neq('Producto', '').execute()
-        print(f"Insertando {len(producto_categoria)} registros en hc_producto_categoria...")
-        insert_table_data('hc_producto_categoria', producto_categoria.to_dict(orient='records'))
+        prod_cat_supabase = supabase_client.table('hc_producto_categoria').select('*').execute()
+        if prod_cat_supabase.data:
+            existing_products = {(record['Producto'], record['Categoria']) for record in prod_cat_supabase.data}
+            new_records = []
+            for _, row in producto_categoria.iterrows():
+                if (row['Producto'], row['Categoria']) not in existing_products:
+                    new_records.append(row.to_dict())
+            producto_categoria = pd.DataFrame(new_records) if new_records else pd.DataFrame(columns=['Producto', 'Categoria'])
+        
+        if len(producto_categoria) > 0:
+            supabase_client.table('hc_producto_categoria').delete().neq('Producto', '').execute()
+            print(f"Insertando {len(producto_categoria)} registros en hc_producto_categoria...")
+            insert_table_data('hc_producto_categoria', producto_categoria.to_dict(orient='records'))
         
         print("Eliminando datos antiguos de hc_venta_general_por_dia...")
         supabase_client.table('hc_venta_general_por_dia').delete().neq('Venta General', 0).execute()
