@@ -2,3 +2,4 @@ tokens.py
 data/
 procesado/
 logs/
+credenciales_gsheets.json

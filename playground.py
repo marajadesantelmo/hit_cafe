@@ -1,3 +1,10 @@
+# Creo sheet en gsheets
+import gspread
+gc = gspread.service_account(filename='credenciales_gsheets.json')
+sheet = gc.create('Hit Cafe Análisis Ventas')
+sheet.share('marajadesantelmo@gmail.com', perm_type='user', role='writer')
+
+
 import os
 import time
 import requests

@@ -236,7 +236,7 @@ def run_processing() -> dict:
     metrica_ventas_arguibel_hoy = ventas_arguibel_hoy['amount'].sum()
     
     if metrica_ventas_arguibel_hoy != 0:
-        promedio_diario_arguibel = ventas_ult_30_dias_arguibel / 30
+        promedio_diario_arguibel = ventas_ult_30_dias_arguibel['amount'].sum() / 30
     else:
         promedio_diario_arguibel = 0
 
@@ -263,7 +263,7 @@ def run_processing() -> dict:
     metrica_ventas_polo_hoy = ventas_polo_hoy['amount'].sum()
 
     if metrica_ventas_polo_hoy != 0:
-        promedio_diario_polo = ventas_ult_30_dias_polo / 30
+        promedio_diario_polo = ventas_ult_30_dias_polo['amount'].sum() / 30
     else:
         promedio_diario_polo = 0
 
@@ -360,7 +360,11 @@ def run_processing() -> dict:
 
         print("Carga de datos a Supabase completada exitosamente.")
 
-    
+        print("Subiendo data a Google Sheets... ")
+        import gspread
+        gc = gspread.service_account(filename='credenciales_gsheets.json')
+        sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/1RkKcgrWL49feCO0CcblzRWrH0RMgMF1eKZaeeEIG2ng')
+
     except Exception as e:
         log_event("ERROR", "process_data", "Error uploading data to Supabase", error=str(e))
     return {
