@@ -202,14 +202,12 @@ def run_processing() -> dict:
     #Total ventas hoy
     ventas_hoy = pagos[pagos['createdAt'] == current_date.date()]
     metrica_ventas_hoy = ventas_hoy['amount'].sum()
-
+    venta_total = pagos['amount'].sum()
     #Promedio ventas diario
-    if metrica_ventas_hoy != 0:
-        dias_transcurridos = (current_date - first_day_of_current_month).days + 1
-        promedio_diario = metrica_ventas_hoy / dias_transcurridos
-    else:
-        promedio_diario = 0
-
+    first_day_in_database = pagos['createdAt'].min()
+    dias_transcurridos = (current_date.date() - first_day_in_database).days + 1
+    promedio_diario = venta_total / dias_transcurridos
+    
     # Métricas para Arguibel
     ventas_arguibel = pagos[pagos['Sucursal'] == 'Arguibel']
     ventas_arguibel_mes_actual = ventas_arguibel[ventas_arguibel['mes'] == current_date.strftime("%Y-%m")]
@@ -318,7 +316,6 @@ def run_processing() -> dict:
             producto_categoria = pd.DataFrame(new_records) if new_records else pd.DataFrame(columns=['Producto', 'Categoria'])
         
         if len(producto_categoria) > 0:
-            supabase_client.table('hc_producto_categoria').delete().neq('Producto', '').execute()
             print(f"Insertando {len(producto_categoria)} registros en hc_producto_categoria...")
             insert_table_data('hc_producto_categoria', producto_categoria.to_dict(orient='records'))
         
