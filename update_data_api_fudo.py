@@ -228,9 +228,10 @@ def run_update():
         pagos['Sucursal'] = None
 
     # Limpio la base de posibles ventas no cerradas y saco ultimas 20 ventas por las dudas
-    ventas = ventas.dropna(subset=['closedAt'])
-    if len(ventas) > 20:
-        ventas = ventas.iloc[:-20]
+    # Only clean once at the beginning, before calculating last_sale_id
+    ventas_clean = ventas.dropna(subset=['closedAt']).copy()
+    if len(ventas_clean) > 20:
+        ventas_clean = ventas_clean.iloc[:-20]
     updated_counts = {"ventas_added": 0, "items_added": 0, "pagos_added": 0}
 
     ventas_updates_all = []
@@ -239,8 +240,8 @@ def run_update():
 
     for cfg in get_branch_configs():
         suc = cfg['name']
-        # Compute last sale id per sucursal
-        v_suc = ventas[ventas['Sucursal'] == suc]
+        # Compute last sale id per sucursal using cleaned data
+        v_suc = ventas_clean[ventas_clean['Sucursal'] == suc]
         if not v_suc.empty:
             try:
                 last_sale_id = pd.to_numeric(v_suc['sale_id'], errors='coerce').dropna().astype(int).max()
@@ -278,18 +279,24 @@ def run_update():
     if items_updates_all:
         log_event("INFO", "update_data_api_fudo", "Actualizando items.csv (todas las sucursales)")
         items_new = pd.concat([items] + items_updates_all, ignore_index=True)
+        # Remove duplicates based on sale_id, product_id, and Sucursal
+        items_new = items_new.drop_duplicates(subset=['sale_id', 'product_id', 'Sucursal'], keep='last')
         items_new.to_csv(items_path, index=False)
         time.sleep(1)
 
     if ventas_updates_all:
         log_event("INFO", "update_data_api_fudo", "Actualizando ventas.csv (todas las sucursales)")
         ventas_new = pd.concat([ventas] + ventas_updates_all, ignore_index=True)
+        # Remove duplicates based on sale_id and Sucursal
+        ventas_new = ventas_new.drop_duplicates(subset=['sale_id', 'Sucursal'], keep='last')
         ventas_new.to_csv(ventas_path, index=False)
         time.sleep(1)
 
     if pagos_updates_all:
         log_event("INFO", "update_data_api_fudo", "Actualizando pagos.csv (todas las sucursales)")
         pagos_new = pd.concat([pagos] + pagos_updates_all, ignore_index=True)
+        # Remove duplicates based on payment_id and Sucursal
+        pagos_new = pagos_new.drop_duplicates(subset=['payment_id', 'Sucursal'], keep='last')
         pagos_new.to_csv(pagos_path, index=False)
         time.sleep(1)
 
