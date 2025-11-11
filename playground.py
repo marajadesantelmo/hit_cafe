@@ -1,8 +1,13 @@
 # Creo sheet en gsheets
 import gspread
 gc = gspread.service_account(filename='credenciales_gsheets.json')
-sheet = gc.create('Hit Cafe Análisis Ventas')
-sheet.share('marajadesantelmo@gmail.com', perm_type='user', role='writer')
+sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/1RkKcgrWL49feCO0CcblzRWrH0RMgMF1eKZaeeEIG2ng')
+sheet.add_worksheet(title='Arguibel - Ventas Hoy', rows='100', cols='20')
+sheet.add_worksheet(title='Arguibel - Ventas Ayer', rows='100', cols='20')
+sheet.add_worksheet(title='Arguibel - Ventas Mes Actual', rows='100', cols='20')
+sheet.add_worksheet(title='Polo - Ventas Hoy', rows='100', cols='20')
+sheet.add_worksheet(title='Polo - Ventas Ayer', rows='100', cols='20')
+sheet.add_worksheet(title='Polo - Ventas Mes Actual', rows='100', cols='20')
 
 
 import os

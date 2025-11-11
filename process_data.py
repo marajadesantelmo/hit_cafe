@@ -6,6 +6,7 @@ from supabase import create_client, Client
 supabase_client = create_client(url_supabase, key_supabase)
 import pandas as pd
 from logging_utils import log_event
+import time
 
 def insert_table_data(table_name, data):
     for record in data:
@@ -133,7 +134,7 @@ def run_processing() -> dict:
     # Metricas de producto
     items_por_dia = items.groupby(['Sucursal', 'createdAt', 'product_name']).agg({
         'quantity': 'sum',
-        'total': 'sum'
+       'price': 'sum'
     }).reset_index()
     items_por_dia.columns = ['Sucursal', 'Fecha', 'Producto', 'Cantidad Total', 'Venta Total']
     items_por_dia = items_por_dia[items_por_dia['Cantidad Total'] > 0]
@@ -156,7 +157,7 @@ def run_processing() -> dict:
     # Metricas de categoria
     categorias_por_dia = items.groupby(['Sucursal', 'createdAt', 'product_category']).agg({
         'quantity': 'sum',
-        'total': 'sum'
+       'price': 'sum'
     }).reset_index()
     categorias_por_dia.columns = ['Sucursal', 'Fecha', 'Categoria', 'Cantidad Total', 'Venta Total']
     categorias_por_dia = categorias_por_dia[categorias_por_dia['Cantidad Total'] > 0]
@@ -312,7 +313,45 @@ def run_processing() -> dict:
     ventas_mensual_general['Venta Mensual'] = ventas_mensual_general['Venta Mensual'].round(0).astype(int)
     ventas_mensuales = pd.concat([ventas_mensuales, ventas_mensual_general], ignore_index=True)
 
+    #Resumen para el sheets
+    items_mes_actual = items[items['mes'] == current_date.strftime("%Y-%m")]
+    items_mes_actual = items_mes_actual.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_mes_actual.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_mes_actual = items_mes_actual.sort_values(by='Cantidad Vendida', ascending=False)
+    items_hoy = items[items['createdAt'] == current_date.date()]
+    items_hoy = items_hoy.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_hoy.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_hoy = items_hoy.sort_values(by='Cantidad Vendida', ascending=False)
+    items_ayer = items[items['createdAt'] == (current_date - timedelta(days=1)).date()]
+    items_ayer = items_ayer.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_ayer.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_ayer = items_ayer.sort_values(by='Cantidad Vendida', ascending=False)
 
+    items_mes_actual_polo = items[(items['mes'] == current_date.strftime("%Y-%m")) & (items['Sucursal'] == 'Polo')]
+    items_mes_actual_polo = items_mes_actual_polo.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_mes_actual_polo.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_mes_actual_polo = items_mes_actual_polo.sort_values(by='Cantidad Vendida', ascending=False)
+    items_hoy_polo = items[(items['createdAt'] == current_date.date()) & (items['Sucursal'] == 'Polo')]
+    items_hoy_polo = items_hoy_polo.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_hoy_polo.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_hoy_polo = items_hoy_polo.sort_values(by='Cantidad Vendida', ascending=False)
+    items_ayer_polo = items[(items['createdAt'] == (current_date - timedelta(days=1)).date()) & (items['Sucursal'] == 'Polo')]
+    items_ayer_polo = items_ayer_polo.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_ayer_polo.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_ayer_polo = items_ayer_polo.sort_values(by='Cantidad Vendida', ascending=False)
+
+    items_mes_actual_arguibel = items[(items['mes'] == current_date.strftime("%Y-%m")) & (items['Sucursal'] == 'Arguibel')]
+    items_mes_actual_arguibel = items_mes_actual_arguibel.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_mes_actual_arguibel.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_mes_actual_arguibel = items_mes_actual_arguibel.sort_values(by='Cantidad Vendida', ascending=False)
+    items_hoy_arguibel = items[(items['createdAt'] == current_date.date()) & (items['Sucursal'] == 'Arguibel')]
+    items_hoy_arguibel = items_hoy_arguibel.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_hoy_arguibel.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_hoy_arguibel = items_hoy_arguibel.sort_values(by='Cantidad Vendida', ascending=False)
+    items_ayer_arguibel = items[(items['createdAt'] == (current_date - timedelta(days=1)).date()) & (items['Sucursal'] == 'Arguibel')]
+    items_ayer_arguibel = items_ayer_arguibel.groupby('product_name').agg({'quantity': 'sum','price': 'sum'}).reset_index()
+    items_ayer_arguibel.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
+    items_ayer_arguibel = items_ayer_arguibel.sort_values(by='Cantidad Vendida', ascending=False)
 
     try: 
         prod_cat_supabase = supabase_client.table('hc_producto_categoria').select('*').execute()
@@ -364,6 +403,43 @@ def run_processing() -> dict:
         import gspread
         gc = gspread.service_account(filename='credenciales_gsheets.json')
         sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/1RkKcgrWL49feCO0CcblzRWrH0RMgMF1eKZaeeEIG2ng')
+        sheet_hoy = sheet.worksheet('Ventas Hoy')
+        sheet_hoy.clear()
+        sheet_hoy.update([items_hoy.columns.values.tolist()] + items_hoy.values.tolist())
+    
+        sheet_ayer = sheet.worksheet('Ventas Ayer')
+        sheet_ayer.clear()
+        sheet_ayer.update([items_ayer.columns.values.tolist()] + items_ayer.values.tolist())
+        
+        sheet_mes = sheet.worksheet('Mes Actual')
+        sheet_mes.clear()
+        sheet_mes.update([items_mes_actual.columns.values.tolist()] + items_mes_actual.values.tolist())
+        print("Esperando 10 segundos para evitar errores de cuota de Google Sheets...")
+        time.sleep(10)
+        sheet_hoy_arguibel = sheet.worksheet('Arguibel - Ventas Hoy')
+        sheet_hoy_arguibel.clear()
+        sheet_hoy_arguibel.update([items_hoy_arguibel.columns.values.tolist()] + items_hoy_arguibel.values.tolist())
+
+        sheet_ayer_arguibel = sheet.worksheet('Arguibel - Ventas Ayer')
+        sheet_ayer_arguibel.clear()
+        sheet_ayer_arguibel.update([items_ayer_arguibel.columns.values.tolist()] + items_ayer_arguibel.values.tolist())
+
+        sheet_mes_arguibel = sheet.worksheet('Arguibel - Ventas Mes Actual')
+        sheet_mes_arguibel.clear()
+        sheet_mes_arguibel.update([items_mes_actual_arguibel.columns.values.tolist()] + items_mes_actual_arguibel.values.tolist())
+        print("Esperando 10 segundos para evitar errores de cuota de Google Sheets...")
+        time.sleep(10)
+        sheet_hoy_polo = sheet.worksheet('Polo - Ventas Hoy')
+        sheet_hoy_polo.clear()
+        sheet_hoy_polo.update([items_hoy_polo.columns.values.tolist()] + items_hoy_polo.values.tolist())
+
+        sheet_ayer_polo = sheet.worksheet('Polo - Ventas Ayer')
+        sheet_ayer_polo.clear()
+        sheet_ayer_polo.update([items_ayer_polo.columns.values.tolist()] + items_ayer_polo.values.tolist())
+
+        sheet_mes_polo = sheet.worksheet('Polo - Ventas Mes Actual')
+        sheet_mes_polo.clear()
+        sheet_mes_polo.update([items_mes_actual_polo.columns.values.tolist()] + items_mes_actual_polo.values.tolist())
 
     except Exception as e:
         log_event("ERROR", "process_data", "Error uploading data to Supabase", error=str(e))
