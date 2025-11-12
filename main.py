@@ -13,7 +13,8 @@ from typing import Optional
 
 from logging_utils import log_event, ensure_log_setup
 
-import update_data_api_fudo as updater
+#import update_data_api_fudo as updater
+import get_dataframe_fudo as updater
 import process_data as processor
 
 
@@ -25,7 +26,7 @@ def run_pipeline() -> int:
 
 	# Step 1: Update raw data
 	try:
-		update_result = updater.run_update()
+		update_result = updater.get_dataframe()
 		log_event("INFO", "update_data_api_fudo", f"Update completed: {update_result}")
 	except Exception as exc:
 		log_event("ERROR", "update_data_api_fudo", "Update failed", error=str(exc))
