@@ -28,8 +28,12 @@ sales_dfs = []
 items_dfs = []
 
 print('Descargando ventas de Fudo API (todas las sucursales)')
-for cfg in get_branch_configs():
+for i, cfg in enumerate(get_branch_configs()):
     suc = cfg['name']
+    # Add delay between different branches to avoid rate limiting
+    if i > 0:
+        print(f'Esperando 10 segundos antes de procesar {suc}...')
+        time.sleep(10)
     headers = autenticar(cfg['apiKey'], cfg['apiSecret'])
     page = 0
     # Primer request para conocer si hay data
@@ -96,8 +100,12 @@ sales_df.to_csv(os.path.join(data_dir, 'ventas.csv'), index=False)
 #%% Obtengo datos de pagos de todas las sucursales
 print('Descargando pagos de Fudo API (todas las sucursales)')
 payments_dfs = []
-for cfg in get_branch_configs():
+for i, cfg in enumerate(get_branch_configs()):
     suc = cfg['name']
+    # Add delay between different branches to avoid rate limiting
+    if i > 0:
+        print(f'Esperando 10 segundos antes de procesar pagos de {suc}...')
+        time.sleep(10)
     headers = autenticar(cfg['apiKey'], cfg['apiSecret'])
     page = 1
     # First request to check if there's data
@@ -153,8 +161,12 @@ payments_df.to_csv(os.path.join(data_dir, 'pagos.csv'), index=False)
 # %% Obtengo datos de productos y categorias por sucursal
 print('Descargando productos y categorias de Fudo API (todas las sucursales)')
 productos_final_all = []
-for cfg in get_branch_configs():
+for i, cfg in enumerate(get_branch_configs()):
     suc = cfg['name']
+    # Add delay between different branches to avoid rate limiting
+    if i > 0:
+        print(f'Esperando 10 segundos antes de procesar productos de {suc}...')
+        time.sleep(10)
     headers = autenticar(cfg['apiKey'], cfg['apiSecret'])
     # Categorias de productos
     url = 'https://api.fu.do/v1alpha1/product-categories?sort=id&include=products'

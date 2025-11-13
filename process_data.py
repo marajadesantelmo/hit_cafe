@@ -68,20 +68,9 @@ def run_processing() -> dict:
     
     # Formateo items
     items = items[items['canceled'] != True].copy()
-    # Join de items con su sale_id y mes
     items['sale_id'] = items['sale_id'].astype(str)
-    # Join por sale_id y Sucursal para evitar cruces entre sucursales
-    if 'Sucursal' in items.columns and 'Sucursal' in ventas.columns:
-        items = items.merge(ventas, on=['sale_id', 'Sucursal'], how='left').copy()
-    else:
-        # Backward compatibility si falta la columna
-        items = items.merge(ventas, on='sale_id', how='left').copy()
-    # Join de items con su nombre
-    # Join con productos por product_id y Sucursal
-    if 'Sucursal' in items.columns and 'Sucursal' in all_products.columns:
-        items = items.merge(all_products, on=['product_id', 'Sucursal'], how='left')
-    else:
-        items = items.merge(all_products, on='product_id', how='left')
+    items = items.merge(ventas, on=['sale_id', 'Sucursal'], how='left').copy()
+    items = items.merge(all_products, on=['product_id', 'Sucursal'], how='left')
 
     # Permanencia promedio por mes
     permanencia = ventas[ventas['saleType'] == 'EAT-IN']
@@ -197,7 +186,7 @@ def run_processing() -> dict:
     
     #Promedio mensual
     if metrica_ventas_mes_actual != 0:
-        meses_transcurridos = ventas_mes_actual['mes'].nunique()
+        meses_transcurridos = pagos['mes'].nunique()
         promedio_mensual = venta_total / meses_transcurridos
     else:
         promedio_mensual = 0
@@ -221,21 +210,21 @@ def run_processing() -> dict:
     metrica_ventas_arguibel_mes_anterior = ventas_arguibel_mes_anterior['amount'].sum()
     ventas_ult_30_dias_arguibel = ventas_arguibel[ventas_arguibel['createdAt'] >= (current_date - timedelta(days=30)).date()]
     total_ventas_ult_30_dias_arguibel = ventas_ult_30_dias_arguibel['amount'].sum()
-    
+
     if metrica_ventas_arguibel_mes_anterior != 0:
         crecimiento_mensual_arguibel = ((metrica_ventas_arguibel_mes_actual - metrica_ventas_arguibel_mes_anterior) / metrica_ventas_arguibel_mes_anterior) * 100
     else:
         crecimiento_mensual_arguibel = 0
     
     if metrica_ventas_arguibel_mes_actual != 0:
-        meses_transcurridos = ventas_arguibel_mes_actual['mes'].nunique()
+        meses_transcurridos = ventas_arguibel['mes'].nunique()
         promedio_mensual_arguibel =  total_ventas_ult_30_dias_arguibel / meses_transcurridos
     else:
         promedio_mensual_arguibel = 0
     
     ventas_arguibel_hoy = ventas_arguibel[ventas_arguibel['createdAt'] == current_date.date()]
     metrica_ventas_arguibel_hoy = ventas_arguibel_hoy['amount'].sum()
-    
+
     if metrica_ventas_arguibel_hoy != 0:
         promedio_diario_arguibel = ventas_ult_30_dias_arguibel['amount'].sum() / 30
     else:
@@ -256,7 +245,7 @@ def run_processing() -> dict:
         crecimiento_mensual_polo = 0
     
     if metrica_ventas_polo_mes_actual != 0:
-        meses_transcurridos = ventas_polo_mes_actual['mes'].nunique()
+        meses_transcurridos = ventas_polo['mes'].nunique()
         promedio_mensual_polo =  total_ventas_ult_30_dias_polo / meses_transcurridos
     else:
         promedio_mensual_polo = 0
@@ -302,7 +291,7 @@ def run_processing() -> dict:
     metricas_dataframe = pd.DataFrame(metricas_data)
 
     # Venta mensual general y por sucursal
-    ventas_mensuales = ventas.groupby(['Sucursal', 'mes']).agg({'total': 'sum'}).reset_index()
+    ventas_mensuales = pagos.groupby(['Sucursal', 'mes']).agg({'amount': 'sum'}).reset_index()
     ventas_mensuales.columns = ['Sucursal', 'Mes', 'Venta Mensual']
     ventas_mensuales['Mes'] = ventas_mensuales['Mes'].astype(str)
     ventas_mensuales['Venta Mensual'] = ventas_mensuales['Venta Mensual'].round(0).astype(int)
@@ -353,6 +342,30 @@ def run_processing() -> dict:
     items_ayer_arguibel.columns = ['Producto', 'Cantidad Vendida', 'Venta Total']
     items_ayer_arguibel = items_ayer_arguibel.sort_values(by='Cantidad Vendida', ascending=False)
 
+    venta_diaria_arguibel_items = items[ (items['Sucursal'] == 'Arguibel')].groupby(items['createdAt']).agg({'price': 'sum'}).reset_index()
+    venta_diaria_arguibel_items.columns = ['Fecha', 'Venta items']
+    venta_diaria_arguibel_items['Fecha'] = venta_diaria_arguibel_items['Fecha'].astype(str)
+    venta_diaria_polo_items = items[ (items['Sucursal'] == 'Polo')].groupby(items['createdAt']).agg({'price': 'sum'}).reset_index()
+    venta_diaria_polo_items.columns = ['Fecha', 'Venta items']
+    venta_diaria_polo_items['Fecha'] = venta_diaria_polo_items['Fecha'].astype(str)
+
+    venta_diaria_polo_pagos = pagos[ (pagos['Sucursal'] == 'Polo')].groupby(pagos['createdAt']).agg({'amount': 'sum'}).reset_index()
+    venta_diaria_polo_pagos.columns = ['Fecha', 'Venta pagos']
+    venta_diaria_polo_pagos['Fecha'] = venta_diaria_polo_pagos['Fecha'].astype(str)
+    venta_diaria_arguibel_pagos = pagos[ (pagos['Sucursal'] == 'Arguibel')].groupby(pagos['createdAt']).agg({'amount': 'sum'}).reset_index()
+    venta_diaria_arguibel_pagos.columns = ['Fecha', 'Venta pagos']
+    venta_diaria_arguibel_pagos['Fecha'] = venta_diaria_arguibel_pagos['Fecha'].astype(str)
+
+    venta_diaria_polo_ventas = ventas[ventas['Sucursal'] == 'Polo'].groupby(ventas['createdAt']).agg({'total': 'sum'}).reset_index()
+    venta_diaria_polo_ventas.columns = ['Fecha', 'Venta ventas']
+    venta_diaria_polo_ventas['Fecha'] = venta_diaria_polo_ventas['Fecha'].astype(str)
+    venta_diaria_arguibel_ventas = ventas[ventas['Sucursal'] == 'Arguibel'].groupby(ventas['createdAt']).agg({'total': 'sum'}).reset_index()
+    venta_diaria_arguibel_ventas.columns = ['Fecha', 'Venta ventas']
+    venta_diaria_arguibel_ventas['Fecha'] = venta_diaria_arguibel_ventas['Fecha'].astype(str)  
+
+    venta_diaria_arguibel = venta_diaria_arguibel_items.merge(venta_diaria_arguibel_pagos, on='Fecha', how='outer').merge(venta_diaria_arguibel_ventas, on='Fecha', how='outer').fillna(0)
+    venta_diaria_polo = venta_diaria_polo_items.merge(venta_diaria_polo_pagos, on='Fecha', how='outer').merge(venta_diaria_polo_ventas, on='Fecha', how='outer').fillna(0)
+
     try: 
         prod_cat_supabase = supabase_client.table('hc_producto_categoria').select('*').execute()
         if prod_cat_supabase.data:
@@ -366,7 +379,7 @@ def run_processing() -> dict:
         if len(producto_categoria) > 0:
             print(f"Insertando {len(producto_categoria)} registros en hc_producto_categoria...")
             insert_table_data('hc_producto_categoria', producto_categoria.to_dict(orient='records'))
-        
+        log_event('INFO', 'process_data', 'Cargando datos a supabase')
         print("Eliminando datos antiguos de hc_venta_general_por_dia...")
         supabase_client.table('hc_venta_general_por_dia').delete().neq('Venta General', 0).execute()
         print(f"Insertando {len(ventas_diarias_gral)} registros en hc_venta_general_por_dia...")
@@ -396,10 +409,9 @@ def run_processing() -> dict:
         print(f"Insertando {len(ventas_mensuales)} registros en hc_ventas_mensuales...")
         insert_table_data('hc_venta_mensual', ventas_mensuales.to_dict(orient='records'))
 
-
         print("Carga de datos a Supabase completada exitosamente.")
 
-        print("Subiendo data a Google Sheets... ")
+        log_event('INFO', 'process_data', 'Subida a Google Sheets 1/3')
         import gspread
         gc = gspread.service_account(filename=r'\\dc01\Usuarios\PowerBI\flastra\Documents\hit_cafe\credenciales_gsheets.json')
         sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/1RkKcgrWL49feCO0CcblzRWrH0RMgMF1eKZaeeEIG2ng')
@@ -414,6 +426,7 @@ def run_processing() -> dict:
         sheet_mes = sheet.worksheet('Mes Actual')
         sheet_mes.clear()
         sheet_mes.update([items_mes_actual.columns.values.tolist()] + items_mes_actual.values.tolist())
+        log_event('INFO', 'process_data', 'Subida a Google Sheets 2/3')
         print("Esperando 10 segundos para evitar errores de cuota de Google Sheets...")
         time.sleep(60)
         sheet_hoy_arguibel = sheet.worksheet('Arguibel - Ventas Hoy')
@@ -427,19 +440,27 @@ def run_processing() -> dict:
         sheet_mes_arguibel = sheet.worksheet('Arguibel - Ventas Mes Actual')
         sheet_mes_arguibel.clear()
         sheet_mes_arguibel.update([items_mes_actual_arguibel.columns.values.tolist()] + items_mes_actual_arguibel.values.tolist())
-        print("Esperando 10 segundos para evitar errores de cuota de Google Sheets...")
+        log_event('INFO', 'process_data', 'Subida a Google Sheets 3/3')
         time.sleep(60)
         sheet_hoy_polo = sheet.worksheet('Polo - Ventas Hoy')
         sheet_hoy_polo.clear()
         sheet_hoy_polo.update([items_hoy_polo.columns.values.tolist()] + items_hoy_polo.values.tolist())
-
+        time.sleep(60)
         sheet_ayer_polo = sheet.worksheet('Polo - Ventas Ayer')
         sheet_ayer_polo.clear()
         sheet_ayer_polo.update([items_ayer_polo.columns.values.tolist()] + items_ayer_polo.values.tolist())
-
+        time.sleep(60)
         sheet_mes_polo = sheet.worksheet('Polo - Ventas Mes Actual')
         sheet_mes_polo.clear()
         sheet_mes_polo.update([items_mes_actual_polo.columns.values.tolist()] + items_mes_actual_polo.values.tolist())
+        time.sleep(60)
+        venta_diaria_arguibel_sheet = sheet.worksheet('Diario Arguibel')
+        venta_diaria_arguibel_sheet.clear()
+        venta_diaria_arguibel_sheet.update([venta_diaria_arguibel.columns.values.tolist()] + venta_diaria_arguibel.values.tolist())
+        time.sleep(60)
+        venta_diaria_polo_sheet = sheet.worksheet('Diario Polo')
+        venta_diaria_polo_sheet.clear()
+        venta_diaria_polo_sheet.update([venta_diaria_polo.columns.values.tolist()] + venta_diaria_polo.values.tolist())
 
     except Exception as e:
         log_event("ERROR", "process_data", "Error uploading data to Supabase", error=str(e))
