@@ -110,3 +110,36 @@ CREATE INDEX IF NOT EXISTS idx_hc_rvs_sucursal
 
 	CREATE INDEX IF NOT EXISTS idx_hc_mg_mes
 		ON hc_metricas_generales ("Mes");
+
+
+
+CREATE TABLE hc_eventos (
+    id SERIAL PRIMARY KEY,
+    "Fecha Evento" DATE,
+    "Cliente" TEXT,
+    "Sucursal" TEXT,
+    "Tipo de menu" TEXT,
+    "PAX" NUMERIC,
+    "Horario" TEXT,
+    "Valor persona" NUMERIC,
+    "Total" NUMERIC
+);
+
+
+ hc_eventos_metricas_mensuales (
+	"Sucursal" TEXT NOT NULL,
+	"Mes" TEXT NOT NULL,
+	"Eventos" INTEGER,
+	"PAX_Total" NUMERIC(18,2),
+	"Ingresos_Total" NUMERIC(18,2),
+	"Eventos mes anterior" NUMERIC(18,2),
+	"PAX mes anterior" NUMERIC(18,2),
+	"Venta mes anterior" NUMERIC(18,2),
+	"Eventos mes actual" NUMERIC(18,2),
+	"PAX mes actual" NUMERIC(18,2),
+	"Venta mes actual" NUMERIC(18,2),
+	"Eventos proximo mes" NUMERIC(18,2),
+	"PAX proximo mes" NUMERIC(18,2),
+	"Venta proximo mes" NUMERIC(18,2),
+	CONSTRAINT hc_emm_pk PRIMARY KEY ("Sucursal", "Mes")
+);

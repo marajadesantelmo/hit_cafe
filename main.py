@@ -46,6 +46,18 @@ def run_pipeline() -> int:
     except Exception as e:
         log_event("ERROR", "main", "Error running process_data.py", error=str(e))
 
+    # Step 3: Run update_datos_eventos.py
+    try:
+        log_event("INFO", "main", "Running update_datos_eventos.py")
+        result3 = subprocess.run([sys.executable, r'\\dc01\Usuarios\PowerBI\flastra\Documents\hit_cafe\update_datos_eventos.py'], 
+                                capture_output=True, text=True, check=True, cwd=os.getcwd())
+        log_event("INFO", "main", "update_datos_eventos.py completed successfully")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Exit code {e.returncode}. STDOUT: {e.stdout[:200]}... STDERR: {e.stderr[:200]}..."
+        log_event("ERROR", "main", "update_datos_eventos.py failed", error=error_msg)
+    except Exception as e:
+        log_event("ERROR", "main", "Error running update_datos_eventos.py", error=str(e))
+
     elapsed = (datetime.now() - start_ts).total_seconds()
     log_event("INFO", "main", f"Pipeline finished successfully in {elapsed:.1f}s")
 
